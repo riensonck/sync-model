@@ -10,7 +10,7 @@ This repo contains a directionary of the thesis research project.
 - Analysis: Contains all the codes 
 
 ## Contributors
-The model is developed by [Prof. Dr. Tom Verguts (2017)](10.1162/jocn_a_01117)<br/>
+The model is developed by [Prof. Dr. Tom Verguts (2017)](https://www.ncbi.nlm.nih.gov/pubmed/28253078)<br/>
 Main contributors to coding the model file in this repo:
 - Dr. Mehdi Senoussi
 - Dr. Pieter Verbeke
