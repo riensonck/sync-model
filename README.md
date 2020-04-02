@@ -5,7 +5,7 @@ A Matlab version of the model can be found [here](https://osf.io/dmxkf/)
 **Thesis Student:** [Rien Sonck](https://riensonck.github.io)<br/>
 **Promotor:** [Prof. Dr. Tom Verguts](https://users.ugent.be/~tverguts/Site/Home.html)<br/>
 **Co-Promotor:** [Dr. Mehdi Senoussi](https://sites.google.com/site/senoussim/)<br/>
-@Department of Experimental Psychology, University of Ghent. 
+@[Verguts lab](https://www.cogcomneurosci.com/), Department of Experimental Psychology, [University of Ghent](https://www.ugent.be/en). 
 
 ## What's in This Repo? 
 This repo contains a directionary of the thesis research project.
