@@ -16,5 +16,5 @@ This repo contains a directionary of the thesis research project.
 ## Contributors
 - [Prof. Dr. Tom Verguts](https://users.ugent.be/~tverguts/Site/Home.html), developed the model in his paper: [Binding by Random Bursts: A Computational Model of Cognitive Control.](https://www.ncbi.nlm.nih.gov/pubmed/28253078)
 - [Dr. Pieter Verbeke](https://www.cogcomneurosci.com/about/#pieter-verbeke), main writer of the [Sync-Model.py](https://github.com/riensonck/sync-model/blob/master/Analysis/Sync-Model.py).
-- [Dr. Mehdi Senoussi](https://sites.google.com/site/senoussim/)
+- [Dr. Mehdi Senoussi](https://sites.google.com/site/senoussim/), is currently rewriting parts of the model.
 - [Rien Sonck](https://riensonck.github.io), writer of all the analysis code.
