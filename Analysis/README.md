@@ -6,5 +6,5 @@ This folder contains all the analysis codes for the sync-model.py.
 - **MFC-Check.py:** Compares the MFC amplitude of two frequencies.
 
 Example output of MFC-Check.py: 
-![frequency 1](https://github.com/riensonck/sync-model/tree/master/Images/MFC-amplitude-freq1.png)
+![](https://github.com/riensonck/sync-model/blob/master/Images/MFC-amplitude-freq1.png)
 
