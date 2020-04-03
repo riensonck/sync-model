@@ -1,19 +1,19 @@
-# Thesis Research Project: Computational model for Cognitive Control
+# Thesis Research Project: <br/>Computational model of Cognitive Control
 Welcome to the main research page.<br/>
-**Thesis Student:** Rien Sonck<br/>
-**Promotor:** Prof. Dr. Tom Verguts<br/>
-**Co-Promotor:** Dr. Mehdi Senoussi<br/>
-@Department of Experimental Psychology, University of Ghent. 
+A Matlab version of the model can be found [here](https://osf.io/dmxkf/)
+
+**Thesis Student:** [Rien Sonck](https://riensonck.github.io)<br/>
+**Promotor:** [Prof. Dr. Tom Verguts](https://users.ugent.be/~tverguts/Site/Home.html)<br/>
+**Co-Promotor:** [Dr. Mehdi Senoussi](https://sites.google.com/site/senoussim/)<br/>
+@[Verguts lab](https://www.cogcomneurosci.com/), Department of Experimental Psychology, [University of Ghent](https://www.ugent.be/en). 
 
 ## What's in This Repo? 
 This repo contains a directionary of the thesis research project.
-- Analysis: Contains all the codes 
+- Analysis: Contains all the code
 
 ## Contributors
-The model is developed by [Prof. Dr. Tom Verguts (2017)](https://www.ncbi.nlm.nih.gov/pubmed/28253078)<br/>
-Main contributors to coding the model file in this repo:
-- Dr. Mehdi Senoussi
-- Dr. Pieter Verbeke
+- [Prof. Dr. Tom Verguts](https://users.ugent.be/~tverguts/Site/Home.html), developed the model in his paper: [Binding by Random Bursts: A Computational Model of Cognitive Control.](https://www.ncbi.nlm.nih.gov/pubmed/28253078)
+- [Dr. Pieter Verbeke](https://www.cogcomneurosci.com/about/#pieter-verbeke), main writer of the [Sync-Model.py](https://github.com/riensonck/sync-model/blob/master/Analysis/Sync-Model.py).
+- [Dr. Mehdi Senoussi](https://sites.google.com/site/senoussim/)
+- [Rien Sonck](https://riensonck.github.io), writer of the [Sync-Model-Analysis.R](https://github.com/riensonck/sync-model/blob/master/Analysis/Sync-Model-Analysis.R)
 
-Contributors to coding the model analysis file in this repo:
-- Rien Sonck

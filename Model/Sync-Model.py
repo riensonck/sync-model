@@ -359,12 +359,8 @@ def Model_sim(Threshold=5, drift=2, Nsubjects=1, theta_freq = 5, save_eeg = Fals
 	        Integr_ds = sig.resample(Integr, int(TotT/2.), axis = 1)
 
 	        EEG_data = {'Phase':Phase_ds[:,0,:,:], 'MFC':MFC_ds[0,:,:], 'Rate':Rate_ds, 'Integr':Integr_ds}
-	        Integr_data = Integr_ds
 	        filename_EEG='EEG_Data_simulation_sub%i_thetaFreq%.2fHz_thresh%i_drift%.1f_256Hz' % (sub, theta_freq, Threshold, drift)
-	        filename_Integr='Integr_Data_simulation_sub%i_thetaFreq%.2fHz_thresh%i_drift%.1f_256Hz' % (sub, theta_freq, Threshold, drift)
 	        np.savez(filename_EEG+'.npz', EEG_data)
-	        np.savez(filename_Integr+'.npz', Integr_data)
-        
 
     #return np.mean(accuracy)
 
