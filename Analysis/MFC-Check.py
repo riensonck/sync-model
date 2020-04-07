@@ -45,16 +45,51 @@ def loading_data(freq, drift, thres):
 ###################
 # Loading in Data #
 ###################
-MFC1 = loading_data(1, 2, 4) # 1 Hz, drift 2, thres 4
-MFC20 = loading_data(20, 2, 4) # 20 Hz, drift 2, thres 4
-MFCs = [MFC1, MFC20]
+freqs = np.arange(1, 21) # the frequency ranges in the generated model behavior
+MFCs = []
+
+for freq in freqs:
+	MFCs.append(loading_data(freq, 2, 3)) # 1 Hz, drift 2, thres 4
 
 ###############################
 # Plotting the MFC activation #
 ###############################
-# frequencies laying far away from each other on the frequency spectrum are best to be plotted separatly
-for MFC in MFCs:
-	pl.figure() # drawing the canvas
+# Plotting frequencies 1 to 5
+pl.figure(num=None, figsize=(14, 10), dpi=80, facecolor='w', edgecolor='k') # saving dimensions of the figure
+for i in range(5):
+	pl.subplot(5, 1, i + 1)
 	pl.xlabel("time")
-	pl.ylabel("amplitude")
-	pl.plot(MFC[:, 0]) # plotting the first excitatory unit
+	pl.ylabel(str(freqs[i]) + "Hz amplitude")
+	pl.plot(MFCs[i][:, 0])
+pl.savefig("freq-amplitude_1-5Hz.png")
+pl.close() # clearing the plot
+
+# Plotting frequencies 6 to 10
+pl.figure(num=None, figsize=(14, 10), dpi=80, facecolor='w', edgecolor='k') # saving dimensions of the figure
+for i in range(6,11):
+	pl.subplot(5, 1, i - 5)
+	pl.xlabel("time")
+	pl.ylabel(str(freqs[i]) + "Hz amplitude")
+	pl.plot(MFCs[i][:, 0])
+pl.savefig("freq-amplitude_6-10Hz.png") 
+pl.close() # clearing the plot
+
+# Plotting frequencies 11 to 15
+pl.figure(num=None, figsize=(14, 10), dpi=80, facecolor='w', edgecolor='k') # saving dimensions of the figure
+for i in range(11,16):
+	pl.subplot(5, 1, i - 10)
+	pl.xlabel("time")
+	pl.ylabel(str(freqs[i]) + "Hz amplitude")
+	pl.plot(MFCs[i][:, 0])
+pl.savefig("freq-amplitude_11-15Hz.png") 
+pl.close() # clearing the plot
+
+# Plotting frequencies 16 to 20
+pl.figure(num=None, figsize=(14, 10), dpi=80, facecolor='w', edgecolor='k') # saving dimensions of the figure
+for i in range(11,16):
+	pl.subplot(5, 1, i - 10)
+	pl.xlabel("time")
+	pl.ylabel(str(freqs[i]) + "Hz amplitude")
+	pl.plot(MFCs[i][:, 0])
+pl.savefig("freq-amplitude_11-15Hz.png") 
+pl.close() # clearing the plot
