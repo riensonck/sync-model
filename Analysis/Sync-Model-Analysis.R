@@ -55,8 +55,18 @@ summarySE <- function(data=NULL, measurevar, groupvars=NULL, na.rm=FALSE,
 }
 
 ## EZ Diffusion Model
-## Code adapted from Eric-Jan Wagenmakers, Han L.J. van der Maas , and Raoul P. P. P. Grasman (2007) 
-get.vaTer = function(theta, thres, drift, Pc, VRT, MRT, s = 0.1){
+## Code adapted from Eric-Jan Wagenmakers, Han L.J. van der Maas , and Raoul P. P. P. Grasman (2007)
+## Gives the parameters of the EZ diffusion model
+## theta: theta frequencies to be included as a column in the output dataset of this function
+## thres: threshold to be included as a column in the output dataset of this function
+## drift: neuron drift to be included as a column in the output dataset of this function
+## isi: inter-stimulus interval (isi) to be included as a column in the output dataset of this function
+## Pc: the proportion of correct decisions
+## VRT: the variance of response times for correct decisions
+## MRT: mean response time for correct decisions
+## s: scaling parameter, the default vaue equals 0.1
+## use.isi: boolean, set TRUE if you want to include the isi as a column in the output dataset of this function
+get.vaTer = function(theta, drift, thres,  isi = 0, Pc, VRT, MRT, s = 0.1, use.isi = FALSE){
   # The default value for the scaling parameter s equals 0.1
   s2 <- s^2
   # If Pc equals 0, .5, or 1, the method will not work, and
@@ -82,48 +92,17 @@ get.vaTer = function(theta, thres, drift, Pc, VRT, MRT, s = 0.1){
   MDT = (a/(2 * v)) * (1 - exp(y))/(1 + exp(y))
   Ter = MRT - MDT
   # This gives nondecision time.
-  
-  return(c(theta, thres, drift,round(v,4), round(a, 4), round(Ter,4)))
+  if(use.isi){ # returns the isi as a column in the dataset
+    return(c(theta, drift, thres, isi, round(v,4), round(a, 4), round(Ter,4)))
+  } else {
+    return(c(theta, drift, thres,round(v,4), round(a, 4), round(Ter,4)))
+  }
 }
-
-## EZ Diffusion Model
-## Code adapted from Eric-Jan Wagenmakers, Han L.J. van der Maas , and Raoul P. P. P. Grasman (2007) 
-get.vaTer.isi = function(theta, thres, drift, isi, Pc, VRT, MRT, s = 0.1){
-  # The default value for the scaling parameter s equals 0.1
-  s2 <- s^2
-  # If Pc equals 0, .5, or 1, the method will not work, and
-  # an edge correction is required.
-  if (Pc == 0){
-    cat("Oops, Pc == 0!\n")
-  }
-  if (Pc == 0.5){
-    cat("Oops, Pc == 0.5!\n")
-    Pc = 0.5001
-  }
-  if (Pc == 1){
-    cat("Oops, Pc == 1!\n")
-    Pc = 0.9999
-  }
-  # The function “qlogis” calculates the logit.
-  L <- qlogis(Pc)
-  x <- L*(L*Pc^2 - L*Pc + Pc - 0.5)/VRT
-  v <- sign(Pc - 0.5) * s * x^(1/4)
-  # This gives drift rate.
-  a = s2 * qlogis(Pc)/v
-  # This gives boundary separation.
-  y = -v * a/s2
-  MDT = (a/(2 * v)) * (1 - exp(y))/(1 + exp(y))
-  Ter = MRT - MDT
-  # This gives nondecision time.
-  
-  return(c(theta, thres, drift, isi, round(v,4), round(a, 4), round(Ter,4)))
-}
-
 #####################
 ## Importing Data  ##
 #####################
 
-setwd("~/Desktop/UGent/Thesis-Study/Data/Generated-Data/") # Setting the working directory 
+setwd("~/Desktop/Sync-model/Data/Generated-Data/") # Setting the working directory to the folder containing the data
 files <-list.files(pattern="*.csv")   # collecting all the .csv files in the current working directory
 data <- do.call(rbind, lapply(files, function(x){
   df <- read.csv(x)
@@ -144,9 +123,12 @@ data <- do.call(rbind, lapply(files, function(x){
   return(df)
   }))
 
-#######################
-## Summarizing data  ##
-#######################
+####################################
+## Summarizing data - without isi ##
+####################################
+# used for the plots without isi
+# including the isi column in the dataset would result in extra points being plotted for each isi in many plots, which might make some plot interpretations harder. 
+
 # Summarizing the RT data
 RT_summary <- summarySE(data, measurevar = "rt", groupvars = c("theta", "drift", "thres"))
 names(RT_summary) <- c("theta", "drift", "thres", "N", "RT", "RT_sd", "RT_se", "RT_ci")
@@ -156,12 +138,12 @@ ACC_summary <- summarySE(data, measurevar = "accuracy", groupvars = c("theta", "
 names(ACC_summary) <- c("theta", "drift", "thres", "N", "ACC", "ACC_sd", "ACC_se", "ACC_ci")
 
 # Summarizing and transforming to drift v, boundary a, and nondecision-time Ter
-EZ_data <- matrix(ncol=6, nrow = 640)
+EZ_data <- matrix(ncol=6, nrow = 112) # nrows needs to be equal to the amount of rows in RT_summary
 MRT <- ddply(data, .(theta, drift, thres) , summarize, mean = mean(rt)) # mean response time for correct and uncorrect decisions for each theta
 Pc <- ddply(data, .(theta, drift, thres) , summarize, mean = mean(accuracy)) # Pc, proportion of correct decisions
 VRT <- ddply(data, .(theta, drift, thres) , summarize, sd = sd(accuracy)) # VRT, variance of response times for correct decisions
 for (i in 1:nrow(Pc)){
-  vaTer <- get.vaTer(Pc$theta[i], Pc$drift[i], Pc$thres[i], Pc$mean[i], VRT$sd[i], MRT$mean[i])
+  vaTer <- get.vaTer(theta = Pc$theta[i], drift = Pc$drift[i], thres = Pc$thres[i], Pc = Pc$mean[i], VRT = VRT$sd[i], MRT = MRT$mean[i])
   EZ_data[i,] <- vaTer
 }
 colnames(EZ_data) <- c("theta", "drift", "thres", "v", "a", "Ter") # v - Mean drift rate, a - Boundary separation, Ter - Mean of the nondecision component of processing
@@ -172,15 +154,59 @@ EZ_data$theta <- as.numeric(levels(EZ_data$theta))[EZ_data$theta]
 EZ_data$v <- as.numeric(levels(EZ_data$v))[EZ_data$v]
 EZ_data$a <- as.numeric(levels(EZ_data$a))[EZ_data$a]
 EZ_data$Ter <- as.numeric(levels(EZ_data$Ter))[EZ_data$Ter]
-
 # merging together
 summary <- left_join(RT_summary, ACC_summary, by = c("theta", "drift", "thres"))
 summary$theta <- as.numeric(summary$theta)
 summary <- left_join(summary, EZ_data, by = c("theta", "drift", "thres"))
 
+
+##################################
+## Summarizing data - with isi ##
+#################################
+# used for the plots with isi
+
+# Summarizing the RT data
+RT_summary <- summarySE(data, measurevar = "rt", groupvars = c("theta", "drift", "thres", "isi"))
+names(RT_summary) <- c("theta", "drift", "thres", "isi", "N", "RT", "RT_sd", "RT_se", "RT_ci")
+
+# Summarizing the accuracy data
+ACC_summary <- summarySE(data, measurevar = "accuracy", groupvars = c("theta", "drift", "thres", "isi"))
+names(ACC_summary) <- c("theta", "drift", "thres", "isi", "N", "ACC", "ACC_sd", "ACC_se", "ACC_ci")
+
+# Summarizing and transforming to drift v, boundary a, and nondecision-time Ter
+EZ_data <- matrix(ncol=7, nrow = 7040)
+MRT <- ddply(data, .(theta, drift, thres, isi) , summarize, mean = mean(rt)) # mean response time for correct and uncorrect decisions for each theta
+Pc <- ddply(data, .(theta, drift, thres, isi) , summarize, mean = mean(accuracy)) # Pc, proportion of correct decisions
+VRT <- ddply(data, .(theta, drift, thres, isi) , summarize, sd = sd(accuracy)) # VRT, variance of response times for correct decisions
+for (i in 1:nrow(Pc)){
+  vaTer <- get.vaTer(Pc$theta[i], Pc$drift[i], Pc$thres[i], Pc$isi[i], Pc$mean[i], VRT$sd[i], MRT$mean[i], use.isi = TRUE)
+  EZ_data[i,] <- vaTer
+}
+colnames(EZ_data) <- c("theta", "drift", "thres", "isi", "v", "a", "Ter") # v - Mean drift rate, a - Boundary separation, Ter - Mean of the nondecision component of processing
+EZ_data <- data.frame(EZ_data) 
+# all columns are of class factor, have to change them to the numeric class. Changing from factor to numeric is meaningless in R,
+# and R will just give each factor a numeric postiion value, so the real value is lost. Using a different way: 
+EZ_data$theta <- as.numeric(levels(EZ_data$theta))[EZ_data$theta]
+EZ_data$v <- as.numeric(levels(EZ_data$v))[EZ_data$v]
+EZ_data$isi <- as.numeric(levels(EZ_data$isi))[EZ_data$isi]
+EZ_data$a <- as.numeric(levels(EZ_data$a))[EZ_data$a]
+EZ_data$Ter <- as.numeric(levels(EZ_data$Ter))[EZ_data$Ter]
+
+summary_isi <- left_join(RT_summary, ACC_summary, by = c("theta", "drift", "thres", "isi"))
+summary_isi$theta <- as.numeric(summary_isi$theta)
+summary_isi <- left_join(summary_isi, EZ_data, by = c("theta", "drift", "thres", "isi"))
+
+###############
+## Plotting  ##
+###############
+
+# Setting the working directory to folder to save the plots
+setwd("~/Desktop/Sync-model/Results/")
+
 ############################################
 ## Parameter Search - Reaction Time (RT)  ##
 ############################################
+
 # Plot1: Mean RT ~ theta, drift, threshold
 p1 <- ggplot(summary, aes(x=theta, y = RT, color=drift, group = drift)) + 
   facet_wrap( ~ thres, labeller =  label_both) +
@@ -235,13 +261,13 @@ p5
 ########################################
 
 # Plot 6: Mean Accuracy ~ theta, drift, threshold
-p6 <- ggplot(summary, aes(x=theta, y = ACC, color=drift, group = drift)) + 
-  facet_wrap( ~ thres, labeller = label_both) +
-  geom_point() + 
-  geom_line(position = position_dodge(0.1)) + # errorbars overlap,  move them .05 to the left and right 
-  geom_errorbar(aes(ymin=ACC-ACC_ci, ymax=ACC+ACC_ci), width=.1) + 
-  labs(title = 'Mean Accuracy ~ theta, drift, threshold', y ="accuracy") 
-p6
+  p6 <- ggplot(summary, aes(x=theta, y = ACC, color=drift, group = drift)) + 
+    facet_wrap( ~ thres, labeller = label_both) +
+    geom_point() + 
+    geom_line(position = position_dodge(0.1)) + # errorbars overlap,  move them .05 to the left and right 
+    geom_errorbar(aes(ymin=ACC-ACC_ci, ymax=ACC+ACC_ci), width=.1) + 
+    labs(title = 'Mean Accuracy ~ theta, drift, threshold', y ="accuracy") 
+  p6
 
 # Plot 7: Accuracy Distribution ~ drift, threshold
 myPalette <- colorRampPalette(brewer.pal(9, "PuBu"))
@@ -275,9 +301,9 @@ p8 <- ggplot(sub8, aes(x = accuracy, fill = ..prop..)) +
                  y= ..prop.. ), stat= "count", vjust = -.1)
 p8 
 
+# Plot 9: accuracy - ISI (Delta frequencies)
 isi <- subset(summary_isi, theta < 4)
 isi$theta <- factor(isi$theta, levels = c("1","2","3","4","5","6","7","8","9","10","11","12","13","14","15","16","17","18","19","20"))
-# Plot 9: accuracy - ISI
 p9 <- ggplot(isi, aes(x=isi, y = ACC, color=theta, group = theta)) + 
   facet_grid(cols = vars(drift), rows = vars(thres), labeller = label_both) +
   geom_point() + 
@@ -286,48 +312,33 @@ p9 <- ggplot(isi, aes(x=isi, y = ACC, color=theta, group = theta)) +
   geom_errorbar(aes(ymin=ACC-ACC_ci, ymax=ACC+ACC_ci), width=.1)
 p9
 
+# Plot 10: accuracy - ISI (Theta frequencies)
 isi <- subset(summary_isi, theta < 8 & theta > 3)
 isi$theta <- factor(isi$theta, levels = c("1","2","3","4","5","6","7","8","9","10","11","12","13","14","15","16","17","18","19","20"))
-# Plot 9: accuracy - ISI
-p9 <- ggplot(isi, aes(x=isi, y = ACC, color=theta, group = theta)) + 
+p10 <- ggplot(isi, aes(x=isi, y = ACC, color=theta, group = theta)) + 
   facet_grid(cols = vars(drift), rows = vars(thres), labeller = label_both) +
   geom_point() + 
   labs(title = 'Accuracy ~ ISI (Theta)', y='accuracy', color ="theta") +
   geom_line(position = position_dodge(0.1)) + # errorbars overlap,  move them .05 to the left and right 
   geom_errorbar(aes(ymin=ACC-ACC_ci, ymax=ACC+ACC_ci), width=.1)
-p9
+p10
 
+# Plot 11: accuracy - ISI (Alpha frequencies)
 isi <- subset(summary_isi, theta < 13 & theta > 7)
 isi$theta <- factor(isi$theta, levels = c("1","2","3","4","5","6","7","8","9","10","11","12","13","14","15","16","17","18","19","20"))
-# Plot 9: accuracy - ISI
-p9 <- ggplot(isi, aes(x=isi, y = ACC, color=theta, group = theta)) + 
+p11 <- ggplot(isi, aes(x=isi, y = ACC, color=theta, group = theta)) + 
   facet_grid(cols = vars(drift), rows = vars(thres), labeller = label_both) +
   geom_point() + 
   labs(title = 'Accuracy ~ ISI (Alpha)', y='accuracy', color ="alpha") +
   geom_line(position = position_dodge(0.1)) + # errorbars overlap,  move them .05 to the left and right 
   geom_errorbar(aes(ymin=ACC-ACC_ci, ymax=ACC+ACC_ci), width=.1)
-p9
-
-
-
-isi_summary <- summarySE(data, measurevar = "accuracy", groupvars = c("isi", "drift", "thres"))
-
-isi <- subset(summary_isi)
-isi$theta <- factor(isi$theta, levels = c("1","2","3","4","5","6","7","8","9","10","11","12","13","14","15","16","17","18","19","20"))
-# Plot 9: accuracy - ISI
-p9 <- ggplot(isi_summary, aes(x=isi, y = accuracy, color = drift)) + 
-  facet_grid(cols = vars(drift), rows = vars(thres), labeller = label_both) +
-  geom_point() + 
-  labs(title = 'Accuracy ~ ISI', y='accuracy', color ="drift") +
-  geom_line(position = position_dodge(0.1)) + # errorbars overlap,  move them .05 to the left and right 
-  geom_errorbar(aes(ymin=accuracy-ci, ymax=accuracy+ci), width=.1)
-p9
+p11
 
 ###############################
 ## Parameter Search - drift  ##
 ###############################
-# Plot 10: Drift v ~ theta, drift, threshold
-p10 <- ggplot(summary, aes(x=theta, y = v, color=drift, group = drift)) + 
+# Plot 12: Drift v ~ theta, drift, threshold
+p12 <- ggplot(summary, aes(x=theta, y = v, color=drift, group = drift)) + 
   facet_grid(cols = vars(drift), rows = vars(thres), labeller = label_both) +
   geom_point() + 
   geom_line(position = position_dodge(0.1)) + 
@@ -335,10 +346,10 @@ p10 <- ggplot(summary, aes(x=theta, y = v, color=drift, group = drift)) +
   stat_smooth(method = "lm", formula = y ~ x, size = 1, color = "black") +
   stat_cor(aes(label = ..r.label..),method = "pearson", label.x = 1, label.y = 0.18, size = 4, color = "black") +
   theme(text = element_text(size=15)) 
-p10
+p12
 
-# Plot 11: Boundary a ~ theta, drift, threshold
-p11 <- ggplot(summary, aes(x=theta, y = a, color=drift, group = drift)) + 
+# Plot 13: Boundary a ~ theta, drift, threshold
+p13 <- ggplot(summary, aes(x=theta, y = a, color=drift, group = drift)) + 
   facet_grid(cols = vars(drift), rows = vars(thres), labeller = label_both) +
   geom_point() + 
   geom_line(position = position_dodge(0.1)) + 
@@ -346,35 +357,35 @@ p11 <- ggplot(summary, aes(x=theta, y = a, color=drift, group = drift)) +
   stat_smooth(method = "lm", formula = y ~ x, size = 1, color = "black") +
   stat_cor(aes(label = ..r.label..),method = "pearson", label.x = 1, label.y = 0.215, size = 4, color = "black") +
   theme(text = element_text(size=15)) 
-p11
-
-# Plot 12: Nondecision time Ter ~ theta, drift, threshold3
-sub12 <- subset(summary, thres == 3)
-p12 <- ggplot(sub12, aes(x=theta, y = Ter, color=drift, group = drift)) + 
-  facet_grid(cols = vars(drift), rows = vars(thres), labeller = label_both) +
-  geom_point() + 
-  geom_line(position = position_dodge(0.1)) + 
-  labs(title = 'Nondecision time Ter ~ theta, drift, threshold', y='Ter') +
-  stat_smooth(method = "lm", formula = y ~ x, size = 1, color = "black") +
-  stat_cor(aes(label = ..r.label..),method = "pearson", label.x = 1, label.y = 350, size = 4, color = "black") +
-  theme(text = element_text(size=15)) 
-p12
-
-# Plot 13: Nondecision time Ter ~ theta, drift, threshold4
-sub13 <- subset(summary, thres == 4)
-p13 <- ggplot(sub13, aes(x=theta, y = Ter, color=drift, group = drift)) + 
-  facet_grid(cols = vars(drift), rows = vars(thres), labeller = label_both) +
-  geom_point() + 
-  geom_line(position = position_dodge(0.1)) + 
-  labs(title = 'Nondecision time Ter ~ theta, drift, threshold', y='Ter') +
-  stat_smooth(method = "lm", formula = y ~ x, size = 1, color = "black") +
-  stat_cor(aes(label = ..r.label..),method = "pearson", label.x = 1, label.y = 450, size = 4, color = "black") +
-  theme(text = element_text(size=15)) 
 p13
 
-# Plot 14: Nondecision time Ter ~ theta, drift, threshold5
-sub14 <- subset(summary, thres == 5)
-p14 <- ggplot(sub14, aes(x=theta, y = Ter, color=drift, group = drift)) + 
+# Plot 14: Nondecision time Ter ~ theta, drift, threshold3
+sub14 <- subset(summary, thres == 3)
+p14 <- ggplot(sub12, aes(x=theta, y = Ter, color=drift, group = drift)) + 
+  facet_grid(cols = vars(drift), rows = vars(thres), labeller = label_both) +
+  geom_point() + 
+  geom_line(position = position_dodge(0.1)) + 
+  labs(title = 'Nondecision time Ter ~ theta, drift, threshold', y='Ter') +
+  stat_smooth(method = "lm", formula = y ~ x, size = 1, color = "black") +
+  stat_cor(aes(label = ..r.label..),method = "pearson", label.x = 1, label.y = 230, size = 4, color = "black") +
+  theme(text = element_text(size=15)) 
+p14
+
+# Plot 15: Nondecision time Ter ~ theta, drift, threshold4
+sub15 <- subset(summary, thres == 4)
+p15 <- ggplot(sub13, aes(x=theta, y = Ter, color=drift, group = drift)) + 
+  facet_grid(cols = vars(drift), rows = vars(thres), labeller = label_both) +
+  geom_point() + 
+  geom_line(position = position_dodge(0.1)) + 
+  labs(title = 'Nondecision time Ter ~ theta, drift, threshold', y='Ter') +
+  stat_smooth(method = "lm", formula = y ~ x, size = 1, color = "black") +
+  stat_cor(aes(label = ..r.label..),method = "pearson", label.x = 1, label.y = 300, size = 4, color = "black") +
+  theme(text = element_text(size=15)) 
+p15
+
+# Plot 16: Nondecision time Ter ~ theta, drift, threshold5
+sub16 <- subset(summary, thres == 5)
+p16 <- ggplot(sub14, aes(x=theta, y = Ter, color=drift, group = drift)) + 
   facet_grid(cols = vars(drift), rows = vars(thres), labeller = label_both) +
   geom_point() + 
   geom_line(position = position_dodge(0.1)) + 
@@ -382,11 +393,11 @@ p14 <- ggplot(sub14, aes(x=theta, y = Ter, color=drift, group = drift)) +
   stat_smooth(method = "lm", formula = y ~ x, size = 1, color = "black") +
   stat_cor(aes(label = ..r.label..),method = "pearson", label.x = 1, label.y =550, size = 4, color = "black") +
   theme(text = element_text(size=15)) 
-p14
+p16
 
-# Plot 15: Nondecision time Ter ~ theta, drift, threshold6
-sub15 <- subset(summary, thres == 6)
-p15 <- ggplot(sub15, aes(x=theta, y = Ter, color=drift, group = drift)) + 
+# Plot 17: Nondecision time Ter ~ theta, drift, threshold6
+sub17 <- subset(summary, thres == 6)
+p17 <- ggplot(sub15, aes(x=theta, y = Ter, color=drift, group = drift)) + 
   facet_grid(cols = vars(drift), rows = vars(thres), labeller = label_both) +
   geom_point() + 
   geom_line(position = position_dodge(0.1)) + 
@@ -394,25 +405,25 @@ p15 <- ggplot(sub15, aes(x=theta, y = Ter, color=drift, group = drift)) +
   stat_smooth(method = "lm", formula = y ~ x, size = 1, color = "black") +
   stat_cor(aes(label = ..r.label..),method = "pearson", label.x = 1, label.y = 650, size = 4, color = "black") +
   theme(text = element_text(size=15)) 
-p15
+p17
 
 ##################################
 ## Parameter Correlation Plots  ##
 ##################################
 
-# Plot 16: correlation Rt - accuracy ~ drfit, thres
-p16 <- ggplot(summary, aes(x=RT, y = ACC, color=factor(theta), group = thres)) + 
+# Plot 18: correlation Rt - accuracy ~ drift, thres
+p18 <- ggplot(summary, aes(x=RT, y = ACC, color=factor(theta), group = thres)) + 
   geom_point(shape = 1,colour = "black", size = 2, position = "jitter") +
   geom_point(size = 1, position = "jitter") + 
   labs(title = 'Correlation RT - Accuracy', y='accuracy', x = "RT", color = "theta") +
   stat_smooth(method = "lm", formula = y ~ x, size = 1, color = "black") +
   stat_cor(aes(label = ..r.label..),method = "pearson", label.x = 200, label.y = 0.4, size = 4, color = "black") +
   theme(text = element_text(size=15)) 
-p16
+p18
 
-#Plot 17: correlation RT-accuracy ~ theta 18
-sub17 <- subset(summary, theta == 18)
-p17 <- ggplot(sub17, aes(x=RT, y = ACC, color=factor(thres))) + 
+#Plot 19: correlation RT-accuracy ~ theta 15
+sub19 <- subset(summary, theta == 15)
+p19 <- ggplot(sub17, aes(x=RT, y = ACC, color=factor(thres))) + 
   geom_point(shape = 1,colour = "black", size = 2) +
   geom_point(size = 1) + 
   labs(title = 'Correlation RT - Accuracy ~ theta 18', y='accuracy', x = "RT", color = "threshold") +
@@ -420,117 +431,57 @@ p17 <- ggplot(sub17, aes(x=RT, y = ACC, color=factor(thres))) +
   stat_cor(aes(label = ..r.label..),method = "pearson", label.x = 300, label.y = 0.8, size = 4, color = "black") +
   theme(text = element_text(size=15)) +
   facet_wrap(~ drift, labeller = label_both )
- p17
+ p19
  
- #Plot 18: correlation RT-accuracy ~ theta 6
- sub17 <- subset(summary, theta == 6)
- p18 <- ggplot(sub17, aes(x=RT, y = ACC, color=factor(thres))) + 
-   geom_point(shape = 1,colour = "black", size = 2) +
-   geom_point(size = 1) + 
-   labs(title = 'Correlation RT - Accuracy ~ theta 6', y='accuracy', x = "RT", color = "threshold") +
-   stat_smooth(method = "lm", formula = y ~ x, size = 1, color = "black") +
-   stat_cor(aes(label = ..r.label..),method = "pearson", label.x = 300, label.y = 0.8, size = 4, color = "black") +
-   theme(text = element_text(size=15)) +
-   facet_wrap(~ drift, labeller = label_both )
- p18
+#Plot 20: correlation RT-accuracy ~ theta 6
+sub20 <- subset(summary, theta == 6)
+p20 <- ggplot(sub17, aes(x=RT, y = ACC, color=factor(thres))) + 
+  geom_point(shape = 1,colour = "black", size = 2) +
+  geom_point(size = 1) + 
+  labs(title = 'Correlation RT - Accuracy ~ theta 6', y='accuracy', x = "RT", color = "threshold") +
+  stat_smooth(method = "lm", formula = y ~ x, size = 1, color = "black") +
+  stat_cor(aes(label = ..r.label..),method = "pearson", label.x = 300, label.y = 0.8, size = 4, color = "black") +
+  theme(text = element_text(size=15)) +
+  facet_wrap(~ drift, labeller = label_both )
+p20
 
-
-# Plot 19: Correlation drift v - boundary a
-p19 <- ggplot(summary, aes(x=v, y = a, color=factor(theta))) + 
+# Plot 21: Correlation drift v - boundary a
+p21 <- ggplot(summary, aes(x=v, y = a, color=factor(theta))) + 
   geom_point(shape = 1,colour = "black", size = 2) +
   geom_point(size = 1) + 
   labs(title = 'Correlation drift v - boundary a', y='boundary a', x = "drift v", color = "theta") +
   stat_smooth(method = "lm", formula = y ~ x, size = 1, color = "black") +
   stat_cor(aes(label = ..r.label..),method = "pearson", label.x = 0.05, label.y = 0.21, size = 5, color = "black") +
   theme(text = element_text(size=15)) 
-p19
+p21
 
-# Plot 20: Correlation drift v - boundary a
-p20 <- ggplot(summary, aes(x=v, y = Ter, color=factor(theta))) + 
+# Plot 22: Correlation drift v - Ter
+p22 <- ggplot(summary, aes(x=v, y = Ter, color=factor(theta))) + 
   geom_point(shape = 1,colour = "black", size = 2) +
   geom_point(size = 1) + 
   labs(title = 'Correlation drift v - Ter', y='Ter', x = "drift v", color = "theta") +
   stat_smooth(method = "lm", formula = y ~ x, size = 1, color = "black") +
   stat_cor(aes(label = ..r.label..),method = "pearson", label.x = 0.15, label.y = 500, size = 5, color = "black") +
   theme(text = element_text(size=15)) 
-p20
+p22
 
-# Plot 21: Correlation drift v - boundary a ~ threshold
-p21 <- ggplot(summary, aes(x=v, y = Ter, color=factor(theta))) + 
+# Plot 23: Correlation drift v - boundary a ~ threshold
+p23 <- ggplot(summary, aes(x=v, y = Ter, color=factor(theta))) + 
   geom_point(shape = 1,colour = "black", size = 2) +
   geom_point(size = 1) + 
   labs(title = 'Correlation drift v - Ter ~ threshold', y='Ter', x = "drift v", color = "theta") +
   stat_smooth(method = "lm", formula = y ~ x, size = 1, color = "black") +
-  stat_cor(aes(label = ..r.label..),method = "pearson", label.x = 0.15, label.y = 500, size = 5, color = "black") +
+  stat_cor(aes(label = ..r.label..),method = "pearson", label.x = 0.05, label.y = 300, size = 5, color = "black") +
   theme(text = element_text(size=15))  + 
   facet_wrap(~ thres, labeller = label_both)
-p21
+p23
 
-# Plot 22: Correlation drift v - accuracy
-p22 <- ggplot(summary, aes(x=v, y = ACC, color=factor(theta))) + 
+# Plot 24: Correlation drift v - accuracy
+p24 <- ggplot(summary, aes(x=v, y = ACC, color=factor(theta))) + 
   geom_point(shape = 1,colour = "black", size = 2) +
   geom_point(size = 1) + 
   labs(title = 'Correlation drift v - Accuracy', y='accuracy', x = "drift v", color = "theta") +
   stat_smooth(method = "lm", formula = y ~ x, size = 1, color = "black") +
   stat_cor(aes(label = ..r.label..),method = "pearson", label.x = 0.05, label.y = 1, size = 5, color = "black") +
   theme(text = element_text(size=15))  
-p22
-
-#####################################
-## Needing new dataframe with ISI  ##
-#####################################
-RT_summary <- summarySE(data, measurevar = "rt", groupvars = c("theta", "drift", "thres", "isi"))
-names(RT_summary) <- c("theta", "drift", "thres", "isi", "N", "RT", "RT_sd", "RT_se", "RT_ci")
-# Summarizing the accuracy data
-ACC_summary <- summarySE(data, measurevar = "accuracy", groupvars = c("theta", "drift", "thres", "isi"))
-names(ACC_summary) <- c("theta", "drift", "thres", "isi", "N", "ACC", "ACC_sd", "ACC_se", "ACC_ci")
-
-# Summarizing and transforming to drift v, boundary a, and nondecision-time Ter
-EZ_data <- matrix(ncol=7, nrow = 7040)
-MRT <- ddply(data, .(theta, drift, thres, isi) , summarize, mean = mean(rt)) # mean response time for correct and uncorrect decisions for each theta
-Pc <- ddply(data, .(theta, drift, thres, isi) , summarize, mean = mean(accuracy)) # Pc, proportion of correct decisions
-VRT <- ddply(data, .(theta, drift, thres, isi) , summarize, sd = sd(accuracy)) # VRT, variance of response times for correct decisions
-for (i in 1:nrow(Pc)){
-  vaTer <- get.vaTer.isi(Pc$theta[i], Pc$drift[i], Pc$thres[i], Pc$isi[i], Pc$mean[i], VRT$sd[i], MRT$mean[i])
-  EZ_data[i,] <- vaTer
-}
-colnames(EZ_data) <- c("theta", "drift", "thres", "isi", "v", "a", "Ter") # v - Mean drift rate, a - Boundary separation, Ter - Mean of the nondecision component of processing
-EZ_data <- data.frame(EZ_data) 
-# all columns are of class factor, have to change them to the numeric class. Changing from factor to numeric is meaningless in R,
-# and R will just give each factor a numeric postiion value, so the real value is lost. Using a different way: 
-EZ_data$theta <- as.numeric(levels(EZ_data$theta))[EZ_data$theta]
-EZ_data$v <- as.numeric(levels(EZ_data$v))[EZ_data$v]
-EZ_data$isi <- as.numeric(levels(EZ_data$isi))[EZ_data$isi]
-EZ_data$a <- as.numeric(levels(EZ_data$a))[EZ_data$a]
-EZ_data$Ter <- as.numeric(levels(EZ_data$Ter))[EZ_data$Ter]
-
-summary_isi <- left_join(RT_summary, ACC_summary, by = c("theta", "drift", "thres", "isi"))
-summary_isi$theta <- as.numeric(summary_isi$theta)
-summary_isi <- left_join(summary_isi, EZ_data, by = c("theta", "drift", "thres", "isi"))
-
-####################
-## ISI Plotting  ##
-###################
-isi$theta <- factor(isi$theta, levels = c("1","2","3","4","5","6","7","8","9","10","11","12","13","14","15","16","17","18","19","20"))
-# Plot 21: accuracy - ISI
-sub21 <- subset(summary_isi, thres == 3 & drift == 1)
-p21 <- ggplot(sub20, aes(x=isi, y = v, color=factor(theta), group = factor(theta))) + 
-  #facet_grid(cols = vars(drift), rows = vars(thres), labeller = label_both) +
-  geom_point() +
-  facet_wrap(~ theta, labeller = label_both) +
-  geom_line(position = position_dodge(0.1)) + 
-  labs(title = 'drift v ~ ISI', y='drift v') 
-p21
-
-
-modS <- lm(v ~ thres + theta + thres*theta, data = summary)
-f <- summary(modS)$fstatistic
-
-
-modS <- glm(subj_choice ~ deltaev + deltaev*lottery_won,family=binomial(link='logit'),data=sf)
-insert <- c(as.character(subjects_nonverbal[i]), 
-            as.numeric(modS$coefficients[1]), 
-            as.numeric(modS$coefficients[2]), 
-            as.numeric(modS$coefficients[3]), 
-            as.numeric(modS$coefficients[4]))
-resmodS2_nonverbal[i,] <- insert
+p24

@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 Created on Tue Mar 12 10:38:24 2019
-@author: Pieter
+@authors: Pieter Verbeke, Mehdi Senoussi, and Rien Sonck
 """
 import numpy as np
 from mne import parallel as par
@@ -40,6 +40,13 @@ def phase_updating(Neurons=[], Radius=1, Damp=0.3, Coupling=0.3, multiple=True):
         
     return Phase
 
+# transformation from hertz (the MFC frequency) to MFC
+# damping parameter to keep a relatively similar amplitude
+# (tested from 2 to 15 Hz)
+def hertz_to_damp(freq):
+    return .0184*freq + .0084
+
+
 # Model function
 def Model_sim(Threshold=5, drift=2, Nsubjects=1, theta_freq = 5, save_eeg = False):
     # Threshold = 5
@@ -56,17 +63,17 @@ def Model_sim(Threshold=5, drift=2, Nsubjects=1, theta_freq = 5, save_eeg = Fals
     """
 
     # timing of the experiment
-    srate = 500                                               # sampling rate per second
-    Preinstr_time = int(.2 * srate)                           # pre-instruction time (1s)
-    Instr_time = int(.2 * srate)                              #  instruction presentation (200 ms)
-    Prep_time = (np.arange(1.7,2.2,.05) * srate).astype(int)  # ISI ranging from 1700 to 2200 ms, multiplying it by the sampling rate to get how many samples we have for each ISI
-    Stim_time = int(.05 * srate)                              # Stimulus presentation of 50 ms
-    Resp_time = .7 * srate                                    # max response time of 1s
-    FB_time = int(.1 * srate)                                 # Feedback presentation of 500 ms
-    ITI=(np.arange(1,1.9,.25) * srate).astype(int)            # ITI ranging from 1000 ms to 1900 ms
-    Response_deadline = .7 * srate                            # Response deadline
+    srate = 500                                               # sampling rate per second (500 sample points each second)
+    Preinstr_time = int(.2 * srate)                           # pre-instruction time 1000 sample points (0.2s)
+    Instr_time = int(.2 * srate)                              # instruction presentation 1000 sample points (0.2s)
+    Prep_time = (np.arange(1.7,2.2,.05) * srate).astype(int)  # ISI ranging from 1.7s to 2.2s, multiplying it by the sampling rate to get the amount of sample points we have for each ISI
+    Stim_time = int(.05 * srate)                              # Stimulus presentation of 25 timepoints (0.05s)
+    Resp_time = .7 * srate                                    # max response time 350 sample points (0.7s)
+    FB_time = int(.1 * srate)                                 # Feedback presentation 50 sample points (0.1s)
+    ITI=(np.arange(1,1.9,.25) * srate).astype(int)            # Inter-trial interval (ITI) ranging from 0s to 0.075s (from 0 to 37 sample points)
+    Response_deadline = .7 * srate                            # Response deadline 350 sample points (0.7s)
 
-    # max trial time
+    # The maximum possible trial sample points 
     TotT = (Preinstr_time + Instr_time + max(Prep_time) + Stim_time + Resp_time + FB_time + max(ITI)).astype(int)  
 
     # variables for randomization
@@ -109,7 +116,10 @@ def Model_sim(Threshold=5, drift=2, Nsubjects=1, theta_freq = 5, save_eeg = Fals
         inh[i,i] = 0
 
     cumul = 1
-    #Threshold=4
+    # setting collapsing bound function from [Palestro, Weichart, Sederberg, & Turner (2018)]
+    t_thresh = np.linspace(0, 1, 500) # there are 500 timepoints 
+    a_thresh = Threshold; k_thresh = 2; a_prime_thresh = .0; lamb_thresh = .35 # see eq. 1 of Palestro et al., 2018
+    Threshold_byTime = a_thresh - (1 - np.exp(-(t_thresh/lamb_thresh)**k_thresh)) * ((a_thresh/2.) - a_prime_thresh)
 
     #######################
     #    Control Module   #
@@ -117,7 +127,7 @@ def Model_sim(Threshold=5, drift=2, Nsubjects=1, theta_freq = 5, save_eeg = Fals
     # theta_freq = 5
     r2_MFC=1                                        #radius MFC
     Ct=(theta_freq/srate)*2*np.pi                   #coupling theta waves
-    damp_MFC=.03                                    #damping parameter MFC
+    damp_MFC=.1                                    #damping parameter MFC
     acc_slope=10                                    #MFC slope parameter, is set to -5 in equation (7) of Verguts (2017)
                                                     #(steepness of burst threshold)
                                                     
@@ -155,9 +165,6 @@ def Model_sim(Threshold=5, drift=2, Nsubjects=1, theta_freq = 5, save_eeg = Fals
         #################################
         Instr = np.repeat(range(nInstr), nStim * len(Prep_time)) # Repeat the instructions (nInstr: 0-4) for the ISI's of each stimulus and put it into an array
         Stim = np.tile(range(nStim), nInstr * len(Prep_time)) # Repeat the stimuli for each instruction, total amount of stimuli
-        """
-        TODO: No idea what preparation is doing
-        """
         Preparation = np.floor(np.array(range(UniqueTrials))/(nStim))%len(Prep_time) # Preparation Period, 11 levels 
         Design = np.column_stack([Instr, Stim, Preparation]) # Create an array that has a stack of lists, each list contains instruction, stimulus and a preparation period
         Design = np.tile(Design,(nReps,1)) # Repeat the design nReps
@@ -168,10 +175,7 @@ def Model_sim(Threshold=5, drift=2, Nsubjects=1, theta_freq = 5, save_eeg = Fals
         #    Oscillations start point of the phase neurons  #
         #####################################################
         start = np.random.random((nNodes,2))          # Draw random starting points for the two phase neurons of each node
-        """
-        # TODO: MFC = ACC? Or ACC is a part of the MFC?  
-        """
-        start_MFC = np.random.random((2))             # Acc phase neurons starting point
+        start_MFC = np.random.random((2))             # MFC phase neurons starting point
         # assign starting values
         Phase[:,:,0,0] = start
         MFC[:,0,0] = start_MFC
@@ -293,7 +297,7 @@ def Model_sim(Threshold=5, drift=2, Nsubjects=1, theta_freq = 5, save_eeg = Fals
                 
                 
                 for i in range(nResp):
-                    if Integr[i, time+1, trial]>Threshold:
+                    if Integr[i, time+1, trial] > Threshold_byTime[time-t]: # collapsing bounds
                         resp[trial]=i
                         Integr[:, time+1, trial] = np.zeros((nResp))
                     
@@ -373,13 +377,13 @@ import time
 ###########################
 
 
-drifts = np.arange(1, 11)
-threshs = np.arange(3, 7)
+drifts = np.arange(1, 5)
+threshs = np.arange(3, 5)
 parallel, my_cvstime, _ = par.parallel_func(Model_sim, n_jobs = -1, verbose = 40)
 
 for d in drifts:
     for thr in threshs:
         print('thresh %i, drift %.1f' % (thr, d))
         t = time.time()
-        parallel(my_cvstime(Threshold = thr, drift = d, Nsubjects=1, theta_freq = theta, save_eeg = False) for theta in np.arange(1, 21))
+        parallel(my_cvstime(Threshold = thr, drift = d, Nsubjects=1, theta_freq = theta, save_eeg = True) for theta in np.arange(2, 16))
         print('\ttime taken: %.2fmin' % ((time.time() - t) / 60.))
