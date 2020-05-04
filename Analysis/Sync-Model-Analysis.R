@@ -4,6 +4,7 @@ library(dplyr) # library to join dataframes
 library(cowplot) # has the function background_grid
 library(tidybayes)
 library(RColorBrewer) # for color gradient
+library(reshape2)
 theme_set(theme_tidybayes() + background_grid()) # changing the theme of the plots
 
 ################
@@ -98,11 +99,94 @@ get.vaTer = function(theta, drift, thres,  isi = 0, Pc, VRT, MRT, s = 0.1, use.i
     return(c(theta, drift, thres,round(v,4), round(a, 4), round(Ter,4)))
   }
 }
+
+# function that results in the sample points where the density plot changes
+time_change <- function(data, thetas, drifts, threshs, accuracy){
+  df <- vector()
+  for(th in thetas){
+    for(thr in threshs){
+      for(dr in drifts){
+        for (acc in accuracy){
+          sub <- subset(data, theta == th & drift == dr & thres == thr & accuracy == acc) 
+          d <- density(sub$rt)  # reaction time density plot
+          d1 <- sign(diff(d$y)/diff(d$x)) # derivative of the density plot
+          change <- which(diff(d1) != 0) # the timepoints where the density derivative changes sign
+          # using relative timepoints (difference between timepoints) instead of absolute
+          T1 <-  d$x[change[2]] - d$x[change[1]]
+          if (!is.na(T1)){
+            if (T1 > 200){
+              T1 <- NaN
+              T2 <- NaN
+              T3 <- NaN
+            } else {
+              T2 <-  d$x[change[3]] -  d$x[change[2]] 
+              T3 <-  d$x[change[3]] -  d$x[change[1]]
+            }
+          } else {
+            T2 <- NaN
+            T3 <- NaN
+          }
+          V1 <- c(T1, T2) # vector 1
+          V2 <- c(T2, T3) # vector 2
+          mag <- function(x) sqrt(sum(x^2)) # magnitude function
+          rad <- acos(V1 %*% V2 / (mag(V1) * mag(V2))) # calculate the radians of the angle 
+          rad2deg <- function(rad) {(rad * 180) / (pi)} # radians to degrees function
+          deg <- rad2deg(rad) 
+          df <- rbind(df, c(th, thr, dr, acc, "T2 - T1", T1, deg))
+          df <- rbind(df, c(th, thr, dr, acc, "T3 - T2", T2, deg))
+          df <- rbind(df, c(th, thr, dr, acc, "T3 - T1", T3, deg))
+        }
+      }
+    }
+  }
+  return(df)
+}
+time_change <- function(data, thetas, drifts, threshs, accuracy){
+  df <- vector()
+  for(th in thetas){
+    for(thr in threshs){
+      for(dr in drifts){
+        for (acc in accuracy){
+          sub <- subset(data, theta == th & drift == dr & thres == thr & accuracy == acc) 
+          d <- density(sub$rt)  # reaction time density plot
+          d1 <- sign(diff(d$y)/diff(d$x)) # derivative of the density plot
+          change <- which(diff(d1) != 0) # the timepoints where the density derivative changes sign
+          # using relative timepoints (difference between timepoints) instead of absolute
+          T1 <-  d$x[change[2]] - d$x[change[1]]
+          if (!is.na(T1)){
+            if (T1 > 200){
+              T1 <- NaN
+              T2 <- NaN
+              T3 <- NaN
+            } else {
+              T2 <-  d$x[change[3]] -  d$x[change[2]] 
+              T3 <-  d$x[change[3]] -  d$x[change[1]]
+            }
+          } else {
+            T2 <- NaN
+            T3 <- NaN
+          }
+          # vector (T1, T2), the x-values are randomly chosen, since they don't matter
+          point1 <- c(50., T1) 
+          point2 <- c(100., T2) 
+          diff <- (point2[2] - point1[2]) / (point2[1] - point1[1])
+          rad = atan(diff)
+          rad2deg <- function(rad) {(rad * 180) / (pi)} # radians to degrees function
+          deg <- rad2deg(rad) 
+          df <- rbind(df, c(th, thr, dr, acc, deg))
+        }
+      }
+    }
+  }
+  return(df)
+}
+
 #####################
 ## Importing Data  ##
 #####################
 
-setwd("~/Desktop/Sync-model/Data/Generated-Data/") # Setting the working directory to the folder containing the data
+setwd("~/repos/github_sync-model/Data/Collapsing-Bounds-Data/") # Setting the working directory to the folder containing the data
+#setwd("~/repos/github_sync-model/Data/Lapsing-Bounds-Data/") # Setting the working directory to the folder containing the data
 files <-list.files(pattern="*.csv")   # collecting all the .csv files in the current working directory
 data <- do.call(rbind, lapply(files, function(x){
   df <- read.csv(x)
@@ -200,9 +284,6 @@ summary_isi <- left_join(summary_isi, EZ_data, by = c("theta", "drift", "thres",
 ## Plotting  ##
 ###############
 
-# Setting the working directory to folder to save the plots
-setwd("~/Desktop/Sync-model/Results/")
-
 ############################################
 ## Parameter Search - Reaction Time (RT)  ##
 ############################################
@@ -216,13 +297,130 @@ p1 <- ggplot(summary, aes(x=theta, y = RT, color=drift, group = drift)) +
   geom_errorbar(aes(ymin=RT-RT_ci, ymax=RT+RT_ci), width=.1)
 p1
 
+sub1 <- subset(summary_isi, theta == 3 & drift == 1 & thres == 3)
+p2 <- ggplot(sub1, aes(x = isi, y = v, group = factor(theta), color= factor(theta))) + 
+  facet_grid(cols = vars(drift), rows = vars(thres), labeller = label_both) +
+  geom_point(position = position_dodge(0.1)) +
+  geom_line(position = position_dodge(0.1)) +
+  labs(title = '', x='isi', y ="drift v", color = "Hz") +
+  theme_linedraw()
+p2 
+
+n_samples <-length(sub1$v) 
+fft <- fft(sub1$v)
+amp <- abs(fft)
+mask_good_freq <- seq(1, n_samples/2 + 1)
+amp[mask_good_freq]
+
+# !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+# Plot 2
+thetas <- sort(unique(as.numeric(data$theta)))
+drifts <- sort(unique(as.numeric(data$drift)))
+threshs <- sort(unique(as.numeric(data$thres)))
+accuracy <- sort(unique(as.numeric(data$accuracy)))
+summary_change <- time_change(data, thetas, drifts, threshs, accuracy)
+summary_change <- as.data.frame(summary_change)
+
+colnames(summary_change) <- c("theta", "thres", "drift", "accuracy", "time", "rel_timepoint", "degrees")
+summary_change$theta <- as.numeric(levels(summary_change$theta))[summary_change$theta]
+summary_change$rel_timepoint <- as.numeric(levels(summary_change$rel_timepoint))[summary_change$rel_timepoint]
+summary_change$degrees <- as.numeric(levels(summary_change$degrees))[summary_change$degrees]
+summary_change$time <- factor(summary_change$time, levels = c("T2 - T1","T3 - T2", "T3 - T1"))
+
+sub2 <- subset(data, theta == 3 & accuracy == 1)
+d <- density(sub2$rt)
+plot(d)
+
+sub2.1 <- subset(summary_change, theta < 4 & thres == 3)
+sub2.2 <- subset(summary_change, theta > 3 & theta < 9 & thres == 3)
+sub2.3 <- subset(summary_change, theta > 8 & theta < 13 & thres == 3)
+sub2.4 <- subset(summary_change, theta > 12 & theta < 15 & thres == 3)
+
+sub2 <- subset(summary_change, (theta == 15 | theta == 8 | theta == 2 | theta == 3) & thres == 3 )
+sub2 <- subset(summary_change, thres == 3)
+p2 <- ggplot(sub2, aes(x = time, y = rel_timepoint, group = factor(theta), color= factor(theta))) + 
+  facet_grid(cols = vars(drift), rows = vars(accuracy), labeller = label_both) +
+  geom_point(position = position_dodge(0.1)) +
+  geom_line(position = position_dodge(0.1)) +
+  labs(title = '', x='time intervals', y ="time difference", color = "Hz") +
+  theme_linedraw()
+p2 
+
+aggregate(summary_change$degrees, by=list(summary_change$theta, summary_change$accuracy), FUN = mean, na.rm=TRUE)
+a <- aggregate(summary_change$degrees, by=list(summary_change$theta, summary_change$accuracy, summary_change$drift), FUN = mean, na.rm=TRUE)
+colnames(a) <- c("theta", "accuracy", "drift", "degrees")
+p2 <- ggplot(a, aes(x = factor(theta), y = degrees, group = factor(drift), color= factor(theta))) + 
+  facet_grid(cols = vars(drift), rows = vars(accuracy), labeller = label_both) +
+  geom_point(position = position_dodge(0.1)) +
+  geom_line(position = position_dodge(0.1)) +
+  labs( x='Hz', y ="angle degrees", color = "Hz") +
+  theme_linedraw() +
+  stat_smooth(method = "lm", formula = y ~ x, size = 1, color = "black") +
+  stat_cor(aes(label = ..r.label..),method = "pearson", label.x = 1, label.y = 0.18, size = 4, color = "black") +
+  theme(text = element_text(size=15)) 
+p2 
+
+a <- aggregate(summary_change$degrees, by=list(summary_change$theta, summary_change$accuracy, summary_change$drift, summary_change$thres), FUN = mean, na.rm=TRUE)
+colnames(a) <- c("theta", "accuracy", "drift", "thres", "degrees")
+p2 <- ggplot(a, aes(x = factor(theta), y = degrees, group = accuracy, color= accuracy)) + 
+  facet_grid(cols = vars(drift), rows = vars(thres), labeller = label_both) +
+  geom_point(position = position_dodge(0.1)) +
+  geom_line(position = position_dodge(0.1)) +
+  labs( x='Hz', y ="angle degrees", color = "Hz") +
+  theme_linedraw() +
+  stat_smooth(method = "lm", formula = y ~ x, size = 1, color = "black") +
+  stat_cor(aes(label = ..r.label..),method = "pearson", label.x = 1, label.y = 0.18, size = 4, color = "black") +
+  theme(text = element_text(size=15)) +
+p2 
+
+colnames(summary_change) <- c("theta", "thres", "drift", "accuracy", "degrees")
+summary_change$theta <- as.numeric(levels(summary_change$theta))[summary_change$theta]
+summary_change$degrees <- as.numeric(levels(summary_change$degrees))[summary_change$degrees]
+sub2 <- subset(summary_change, thres == 3)
+p2 <- ggplot(sub2, aes(x = factor(theta), y = degrees, group = factor(drift), color= factor(theta))) + 
+  facet_grid(cols = vars(drift), rows = vars(accuracy), labeller = label_both) +
+  geom_point(position = position_dodge(0.1)) +
+  geom_line(position = position_dodge(0.1)) +
+  labs( x='Hz', y ="angle degrees", color = "Hz") +
+  theme_linedraw() +
+  stat_smooth(method = "lm", formula = y ~ x, size = 1, color = "black") +
+  stat_cor(aes(label = ..r.label..),method = "pearson", label.x = 1, label.y = -60, size = 4, color = "black") +
+  theme(text = element_text(size=15)) +
+  theme_linedraw() +
+  geom_hline(aes(yintercept = 0)) 
+p2 
+#!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+# !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+
 # Plot 2: RT Distribution ~ theta, drift, threshold
-data$theta <- factor(data$theta, levels = c("1","2","3","4","5","6","7","8","9","10","11","12","13","14","15","16","17","18","19","20"))
+data$theta <- factor(data$theta, levels = c("2","3","4","5","6","7","8","9","10","11","12","13","14","15"))
+sub2 <- subset(data, theta == 5 | theta == 9)
+p2 <- ggplot(sub2, aes(x = rt, color= theta)) + 
+  facet_grid(cols = vars(drift), rows = vars(thres), labeller = label_both) +
+  geom_density() +
+  labs(title = 'RT Distribution ~ theta, drift, threshold', x='reaction time', color = "theta") 
+p2 
+ggsave(paste0('~/repos/github_sync-model/Images/1s-Response-Time/p2','.jpg'),plot=p2, units = 'in', width=14, height =20)
+# ggsave(paste0('~/repos/github_sync-model/Images/Lapsing-Bounds/p2','.jpg'),plot=p2, units = 'in', width=14, height =20)
+
+# Plot 2.1: RT Distribution ~ theta, drift, threshold
+data$theta <- factor(data$theta, levels = c("2","3","4","5","6","7","8","9","10","11","12","13","14","15"))
+s2 <- subset(data, thres == 3)
 p2 <- ggplot(data, aes(x = rt, color= theta)) + 
   facet_grid(cols = vars(drift), rows = vars(thres), labeller = label_both) +
   geom_density() +
-  labs(title = ' RT Distribution ~ theta, drift, threshold', x='reaction time', color = "theta") 
+  labs(title = 'RT Distribution ~ theta, drift, threshold 3', x='reaction time', color = "theta") 
 p2 
+ggsave(paste0('~/repos/github_sync-model/Images/1s-Response-Time/p2','.jpg'),plot=p2, units = 'in', width=14, height =20)
+
+s2 <- subset(data, drift == 1)
+p2 <- ggplot(data, aes(x = rt, color= theta)) + 
+  facet_grid(cols = vars(thres), rows = vars(isi), labeller = label_both) +
+  geom_density() +
+  labs(title = 'RT Distribution ~ theta, drift 1, threshold', x='reaction time', color = "theta") 
+p2 
+ggsave(paste0('~/repos/github_sync-model/Images/1s-Response-Time/p2-drift1','.jpg'),plot=p2, units = 'in', width=14, height =20)
 
 ## Plot 3: RT Correct vs Error Distribution ~ Theta
 data$distribution <- as.factor(data$accuracy)
@@ -261,13 +459,12 @@ p5
 ########################################
 
 # Plot 6: Mean Accuracy ~ theta, drift, threshold
-  p6 <- ggplot(summary, aes(x=theta, y = ACC, color=drift, group = drift)) + 
-    facet_wrap( ~ thres, labeller = label_both) +
-    geom_point() + 
-    geom_line(position = position_dodge(0.1)) + # errorbars overlap,  move them .05 to the left and right 
-    geom_errorbar(aes(ymin=ACC-ACC_ci, ymax=ACC+ACC_ci), width=.1) + 
-    labs(title = 'Mean Accuracy ~ theta, drift, threshold', y ="accuracy") 
-  p6
+p6 <- ggplot(summary, aes(x=theta, y = ACC, color=drift, group = drift)) + 
+  facet_wrap( ~ thres, labeller = label_both) +
+  geom_point() + 
+  geom_line(position = position_dodge(0.1)) + # errorbars overlap,  move them .05 to the left and right     geom_errorbar(aes(ymin=ACC-ACC_ci, ymax=ACC+ACC_ci), width=.1) + 
+  labs(title = 'Mean Accuracy ~ theta, drift, threshold', y ="accuracy") 
+p6
 
 # Plot 7: Accuracy Distribution ~ drift, threshold
 myPalette <- colorRampPalette(brewer.pal(9, "PuBu"))
@@ -361,7 +558,7 @@ p13
 
 # Plot 14: Nondecision time Ter ~ theta, drift, threshold3
 sub14 <- subset(summary, thres == 3)
-p14 <- ggplot(sub12, aes(x=theta, y = Ter, color=drift, group = drift)) + 
+p14 <- ggplot(sub14, aes(x=theta, y = Ter, color=drift, group = drift)) + 
   facet_grid(cols = vars(drift), rows = vars(thres), labeller = label_both) +
   geom_point() + 
   geom_line(position = position_dodge(0.1)) + 
@@ -373,7 +570,7 @@ p14
 
 # Plot 15: Nondecision time Ter ~ theta, drift, threshold4
 sub15 <- subset(summary, thres == 4)
-p15 <- ggplot(sub13, aes(x=theta, y = Ter, color=drift, group = drift)) + 
+p15 <- ggplot(sub15, aes(x=theta, y = Ter, color=drift, group = drift)) + 
   facet_grid(cols = vars(drift), rows = vars(thres), labeller = label_both) +
   geom_point() + 
   geom_line(position = position_dodge(0.1)) + 
@@ -385,7 +582,7 @@ p15
 
 # Plot 16: Nondecision time Ter ~ theta, drift, threshold5
 sub16 <- subset(summary, thres == 5)
-p16 <- ggplot(sub14, aes(x=theta, y = Ter, color=drift, group = drift)) + 
+p16 <- ggplot(sub16, aes(x=theta, y = Ter, color=drift, group = drift)) + 
   facet_grid(cols = vars(drift), rows = vars(thres), labeller = label_both) +
   geom_point() + 
   geom_line(position = position_dodge(0.1)) + 
@@ -397,7 +594,7 @@ p16
 
 # Plot 17: Nondecision time Ter ~ theta, drift, threshold6
 sub17 <- subset(summary, thres == 6)
-p17 <- ggplot(sub15, aes(x=theta, y = Ter, color=drift, group = drift)) + 
+p17 <- ggplot(sub17, aes(x=theta, y = Ter, color=drift, group = drift)) + 
   facet_grid(cols = vars(drift), rows = vars(thres), labeller = label_both) +
   geom_point() + 
   geom_line(position = position_dodge(0.1)) + 
@@ -423,7 +620,7 @@ p18
 
 #Plot 19: correlation RT-accuracy ~ theta 15
 sub19 <- subset(summary, theta == 15)
-p19 <- ggplot(sub17, aes(x=RT, y = ACC, color=factor(thres))) + 
+p19 <- ggplot(sub19, aes(x=RT, y = ACC, color=factor(thres))) + 
   geom_point(shape = 1,colour = "black", size = 2) +
   geom_point(size = 1) + 
   labs(title = 'Correlation RT - Accuracy ~ theta 18', y='accuracy', x = "RT", color = "threshold") +
@@ -435,7 +632,7 @@ p19 <- ggplot(sub17, aes(x=RT, y = ACC, color=factor(thres))) +
  
 #Plot 20: correlation RT-accuracy ~ theta 6
 sub20 <- subset(summary, theta == 6)
-p20 <- ggplot(sub17, aes(x=RT, y = ACC, color=factor(thres))) + 
+p20 <- ggplot(sub20, aes(x=RT, y = ACC, color=factor(thres))) + 
   geom_point(shape = 1,colour = "black", size = 2) +
   geom_point(size = 1) + 
   labs(title = 'Correlation RT - Accuracy ~ theta 6', y='accuracy', x = "RT", color = "threshold") +

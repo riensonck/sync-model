@@ -68,13 +68,15 @@ def Model_sim(Threshold=5, drift=2, Nsubjects=1, theta_freq = 5, save_eeg = Fals
     Instr_time = int(.2 * srate)                              # instruction presentation 1000 sample points (0.2s)
     Prep_time = (np.arange(1.7,2.2,.05) * srate).astype(int)  # ISI ranging from 1.7s to 2.2s, multiplying it by the sampling rate to get the amount of sample points we have for each ISI
     Stim_time = int(.05 * srate)                              # Stimulus presentation of 25 timepoints (0.05s)
-    Resp_time = .7 * srate                                    # max response time 350 sample points (0.7s)
+    Resp_time = 1 * srate                                     # max response time 350 sample points (1s)
+    #Resp_time = .7 * srate                                   # max response time ... sample points (0.7s)
     FB_time = int(.1 * srate)                                 # Feedback presentation 50 sample points (0.1s)
     ITI=(np.arange(1,1.9,.25) * srate).astype(int)            # Inter-trial interval (ITI) ranging from 0s to 0.075s (from 0 to 37 sample points)
-    Response_deadline = .7 * srate                            # Response deadline 350 sample points (0.7s)
+    Response_deadline = 1 * srate                             # Response deadline 350 sample points (0.7s)
+    # Response_deadline = 0.7 * srate
 
     # The maximum possible trial sample points 
-    TotT = (Preinstr_time + Instr_time + max(Prep_time) + Stim_time + Resp_time + FB_time + max(ITI)).astype(int)  
+    total_trial_samples = (Preinstr_time + Instr_time + max(Prep_time) + Stim_time + Resp_time + FB_time + max(ITI)).astype(int)  
 
     # variables for randomization
     nInstr = 4                                        # number of instructions
@@ -84,7 +86,7 @@ def Model_sim(Threshold=5, drift=2, Nsubjects=1, theta_freq = 5, save_eeg = Fals
     nResp = 4                                         # number of responses
     nReps = 5                                         # number of replications
     UniqueTrials = nInstr * nStim * len(Prep_time)    # number of different unique trials
-    Tr = UniqueTrials * nReps                         # Total amount of trials
+    total_trial_amount = UniqueTrials * nReps         # Total amount of trials
 
     ###########################
     #    Processing Module   #
@@ -97,8 +99,8 @@ def Model_sim(Threshold=5, drift=2, Nsubjects=1, theta_freq = 5, save_eeg = Fals
     decay = 0.9                                     # decay parameter
     noise = 0.05                                    # noise parameter
 
-    Phase = np.zeros((nNodes,2,TotT,Tr))             # phase neurons, each node has two phase neurons, we update it each timestep, based on the sample rate of each trial
-    Rate = np.zeros((nNodes, TotT, Tr))                        # rate neurons, each node has one rate neuron
+    Phase = np.zeros((nNodes,2,total_trial_samples,total_trial_amount))             # phase neurons, each node has two phase neurons, we update it each timestep, based on the sample rate of each trial
+    Rate = np.zeros((nNodes, total_trial_samples, total_trial_amount))               # rate neurons, each node has one rate neuron
 
     # Weights initialization
     W = np.ones((nStim,nResp))*0.5
@@ -110,16 +112,17 @@ def Model_sim(Threshold=5, drift=2, Nsubjects=1, theta_freq = 5, save_eeg = Fals
     #########################
     #    Integrator Module  #
     #########################
-    Integr = np.zeros(shape = [nResp, TotT, Tr]);              # inhibitory weights inducing competition
+    Integr = np.zeros(shape = [nResp, total_trial_samples, total_trial_amount]);              # inhibitory weights inducing competition
     inh = np.ones((nResp,nResp))*-0.01
     for i in range(nResp):
         inh[i,i] = 0
 
     cumul = 1
     # setting collapsing bound function from [Palestro, Weichart, Sederberg, & Turner (2018)]
-    t_thresh = np.linspace(0, 1, 500) # there are 500 timepoints 
-    a_thresh = Threshold; k_thresh = 2; a_prime_thresh = .0; lamb_thresh = .35 # see eq. 1 of Palestro et al., 2018
-    Threshold_byTime = a_thresh - (1 - np.exp(-(t_thresh/lamb_thresh)**k_thresh)) * ((a_thresh/2.) - a_prime_thresh)
+    t_thresh = np.linspace(0, 1, 1000) # there are 500 timepoints 
+    #a_thresh = Threshold; k_thresh = 2; a_prime_thresh = .0; lamb_thresh = .35 # see eq. 1 of Palestro et al., 2018
+    #Threshold_byTime = a_thresh - (1 - np.exp(-(t_thresh/lamb_thresh)**k_thresh)) * ((a_thresh/2.) - a_prime_thresh)
+    Threshold_byTime =  np.ones(len(t_thresh)) * Threshold # without lapsing bounds
 
     #######################
     #    Control Module   #
@@ -127,14 +130,14 @@ def Model_sim(Threshold=5, drift=2, Nsubjects=1, theta_freq = 5, save_eeg = Fals
     # theta_freq = 5
     r2_MFC=1                                        #radius MFC
     Ct=(theta_freq/srate)*2*np.pi                   #coupling theta waves
-    damp_MFC=.1                                    #damping parameter MFC
+    damp_MFC=.1                                     #damping parameter MFC
     acc_slope=10                                    #MFC slope parameter, is set to -5 in equation (7) of Verguts (2017)
                                                     #(steepness of burst threshold)
                                                     
-    MFC = np.zeros((2,TotT,Tr))                     # MFC phase units, two phase neurons
-    Be=0                                            #bernoulli (rate code MFC)
+    MFC = np.zeros((2,total_trial_samples,total_trial_amount))      # MFC phase units, two phase neurons
+    Be=0                                            				#bernoulli (rate code MFC)
 
-    LFC = np.zeros((nInstr,Tr))                     # LFC stores information for each instruction for each trial
+    LFC = np.zeros((nInstr,total_trial_amount))     # LFC stores information for each instruction for each trial
     LFC_sync = np.zeros((nInstr,4))
     LFC_sync[0,:]=[0,1,4,5]                         # LL  sync left stimulus nodes with left hand nodes
     LFC_sync[1,:]=[2,3,6,7]                         # RR  sync right stimulus nodes with right hand nodes
@@ -142,9 +145,9 @@ def Model_sim(Threshold=5, drift=2, Nsubjects=1, theta_freq = 5, save_eeg = Fals
     LFC_sync[3,:]=[2,3,4,5]                         # RL  sync right stimulus nodes with left hand nodes
 
 
-    tiltrate=.1                                     # mean tilt ~1.8 degrees =.2*90/10 
-    #Instr_activation=np.diag(np.ones((4)))         #Instruction activation matrix
-    Stim_activation=np.zeros((nStim,nResp))         #Stimulus activation matrix
+    tiltrate=.1                                     		  # mean tilt ~1.8 degrees =.2*90/10 
+    #Instr_activation=np.diag(np.ones((4)))         		  #Instruction activation matrix
+    Stim_activation=np.zeros((nStim,nResp))         		  #Stimulus activation matrix
     Stim_activation[0,:]=np.array([1,0,1,0])*tiltrate         #Activate 2 stimuli with left tilt (LL)
     Stim_activation[1,:]=np.array([0,1,0,1])*tiltrate         #Activate 2 stimuli with right tilt(RR)
     Stim_activation[2,:]=np.array([1,0,0,1])*tiltrate         #Activate left stimulus with left tilt and right with right tilt
@@ -184,15 +187,15 @@ def Model_sim(Threshold=5, drift=2, Nsubjects=1, theta_freq = 5, save_eeg = Fals
         #            Records           #
         ################################
 
-        Hit = np.zeros((TotT,Tr))                     # Hit record, check for the sampeling points of each trial
-        RT = np.zeros((Tr))                           # RT record, 
-        accuracy = np.zeros((Tr))                     # Accuracy record
-        Instruct_lock = np.zeros((Tr))                # Instruction onset record
-        Stim_lock = np.zeros((Tr))                    # Stimulus onset record
-        Response_lock = np.zeros((Tr))                # Response onset record 
-        resp = np.ones((Tr)) * -1                     # Response record
-        preparatory_period = np.zeros((Tr))  
-        sync = np.zeros((nStim, nResp, Tr))           # Sync record between the stimuli and the responses on each trial               
+        Hit = np.zeros((total_trial_samples,total_trial_amount))      # Hit record, check for the sampeling points of each trial
+        RT = np.zeros((total_trial_amount))                           # RT record, 
+        accuracy = np.zeros((total_trial_amount))                     # Accuracy record
+        Instruct_lock = np.zeros((total_trial_amount))                # Instruction onset record
+        Stim_lock = np.zeros((total_trial_amount))                    # Stimulus onset record
+        Response_lock = np.zeros((total_trial_amount))                # Response onset record 
+        resp = np.ones((total_trial_amount)) * -1                     # Response record
+        preparatory_period = np.zeros((total_trial_amount))  
+        sync = np.zeros((nStim, nResp, total_trial_amount))           # Sync record between the stimuli and the responses on each trial               
 
 
         ############################################
@@ -200,7 +203,7 @@ def Model_sim(Threshold=5, drift=2, Nsubjects=1, theta_freq = 5, save_eeg = Fals
         ###########################################
         
         time = 0
-        for trial in range(Tr): # for every trial in total amount of trials
+        for trial in range(total_trial_amount): # for every trial in total amount of trials
             
             # FIRST STEP: copying over the phase values of the previous trial to the current trial
             if trial > 0:                                       ### index 0 of the phase neurons are already assigned random starting values, starting points are end points of previous trials
@@ -349,7 +352,7 @@ def Model_sim(Threshold=5, drift=2, Nsubjects=1, theta_freq = 5, save_eeg = Fals
                 for rs in range(nResp):
                     sync[st,rs, trial]=np.corrcoef(Phase[st,0,int(Stim_lock[trial]):int(Response_lock[trial]),trial],Phase[nStim+rs,0,int(Stim_lock[trial]):int(Response_lock[trial]),trial])[0,1]   
         
-        Trials=np.arange(Tr)
+        Trials=np.arange(total_trial_amount)
         Design=np.column_stack((Trials, Design, resp, accuracy, RT, Instruct_lock, Stim_lock, Response_lock))
         Column_list='trial,instr,stim,isi,response,accuracy,rt,instr_onset,stim_onset,resp_onset'
         #Column_list_2='Visual 1, Visual 2, Visual 3, Visual 4, Motor 1, Motor 2, Motor 3, Motor 4, MFC'
@@ -357,10 +360,10 @@ def Model_sim(Threshold=5, drift=2, Nsubjects=1, theta_freq = 5, save_eeg = Fals
         np.savetxt(filename_behavioral+'.csv', Design, header=Column_list, delimiter=',',fmt='%.2f')
         
         if save_eeg:
-	        Phase_ds = sig.resample(Phase, int(TotT/2.), axis = 2)
-	        MFC_ds = sig.resample(MFC, int(TotT/2.), axis = 1)
-	        Rate_ds = sig.resample(Rate, int(TotT/2.), axis = 1)
-	        Integr_ds = sig.resample(Integr, int(TotT/2.), axis = 1)
+	        Phase_ds = sig.resample(Phase, int( total_trial_samples/2.), axis = 2)
+	        MFC_ds = sig.resample(MFC, int( total_trial_samples/2.), axis = 1)
+	        Rate_ds = sig.resample(Rate, int( total_trial_samples/2.), axis = 1)
+	        Integr_ds = sig.resample(Integr, int( total_trial_samples/2.), axis = 1)
 
 	        EEG_data = {'Phase':Phase_ds[:,0,:,:], 'MFC':MFC_ds[0,:,:], 'Rate':Rate_ds, 'Integr':Integr_ds}
 	        filename_EEG='EEG_Data_simulation_sub%i_thetaFreq%.2fHz_thresh%i_drift%.1f_256Hz' % (sub, theta_freq, Threshold, drift)
@@ -385,5 +388,5 @@ for d in drifts:
     for thr in threshs:
         print('thresh %i, drift %.1f' % (thr, d))
         t = time.time()
-        parallel(my_cvstime(Threshold = thr, drift = d, Nsubjects=1, theta_freq = theta, save_eeg = True) for theta in np.arange(2, 16))
+        parallel(my_cvstime(Threshold = thr, drift = d, Nsubjects=1, theta_freq = theta, save_eeg = False) for theta in np.arange(2, 16))
         print('\ttime taken: %.2fmin' % ((time.time() - t) / 60.))
