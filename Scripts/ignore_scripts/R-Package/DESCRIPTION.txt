@@ -1,0 +1,11 @@
+Package: syncplot
+Version: 0.1-0
+Date: 2020-06-25
+Title: Sync Model Plotting Functions
+Authors@R: c(person("Rien", "Sonck", role = c("aut", "cre"),
+                    email = "rien.sonck@ugent.be"))
+Author: Rien Sonck [aut, cre]
+Maintainer: Rien Sonck <rien.sonck@ugent.be>
+  Depends: R (>= 3.1.0), ggplot2 (>= 3.2.1), ggpubr (>= 0.2.4), dplyr (>= 0.8.3), cowplot (>= 1.0.0), tidybayes (>= 1.1.0), RColorBrewer (>= 1.1-2), reshape2 (>= 1.4.3), ggstance (>= 0.3.3), gridExtra (>= 2.3)
+Description: This package is used to collect all the plotting functions used in my thesis. 
+License: GPL (>= 2)   
